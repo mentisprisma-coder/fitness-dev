@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101214" />
+    <link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <title>Gerador Inteligente de Treinos V1</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <nav class="top-nav" aria-label="Navegação principal">
+      <span class="top-brand">Mentis Fitness</span>
+      <div class="top-actions">
+        <button class="icon-nav-button" id="themeToggleButton" type="button" aria-label="Alternar modo claro e escuro" aria-pressed="false">
+          <span id="themeToggleIcon">🌙</span>
+        </button>
+        <button class="icon-nav-button" id="settingsButton" type="button" aria-label="Abrir definições">
+          <span>⚙️</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Mentis Fitness</p>
+          <h1>Gerador de Treinos</h1>
+        </div>
+        <span class="status-pill" id="profileStatus">Sem perfil</span>
+      </header>
+
+      <section class="screen active" id="onboardingScreen" aria-labelledby="onboardingTitle">
+        <div class="section-heading">
+          <h2 id="onboardingTitle">Perfil do utilizador</h2>
+          <p>Define uma vez como deves treinar. O treino do dia fica separado.</p>
+        </div>
+
+        <form class="stack" id="profileForm" novalidate>
+          <fieldset>
+            <legend>Objetivo</legend>
+            <div class="option-grid" data-field="goal"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Nível</legend>
+            <div class="option-grid" data-field="level"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Local de treino padrão</legend>
+            <div class="option-grid" data-field="defaultLocation"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Limitações</legend>
+            <div class="option-grid" data-field="limitation"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Estímulo semanal por músculo</legend>
+            <div class="option-grid" data-field="weeklyStimulus"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Pontos fracos</legend>
+            <div class="option-grid multi" data-field="weakPoints"></div>
+          </fieldset>
+
+          <div class="input-grid">
+            <label>
+              Peso (kg)
+              <input id="weight" name="weight" inputmode="decimal" min="20" max="300" type="number" required />
+            </label>
+            <label>
+              Altura (cm)
+              <input id="height" name="height" inputmode="numeric" min="100" max="230" type="number" required />
+            </label>
+            <label>
+              Idade
+              <input id="age" name="age" inputmode="numeric" min="12" max="100" type="number" required />
+            </label>
+          </div>
+
+          <fieldset>
+            <legend>Estilo de vida</legend>
+            <div class="option-grid" data-field="lifestyle"></div>
+          </fieldset>
+
+          <button class="primary-button" type="submit">Guardar perfil</button>
+        </form>
+      </section>
+
+      <section class="screen" id="homeScreen" aria-labelledby="homeTitle">
+        <div class="section-heading">
+          <h2 id="homeTitle">Hoje</h2>
+          <p id="profileSummary">Perfil pronto para gerar treinos.</p>
+        </div>
+
+        <div class="profile-card" id="profileInsights"></div>
+
+        <div class="home-actions" aria-label="Ações de treino">
+          <button class="secondary-button" id="continueWorkoutButton" type="button">Continuar treino</button>
+          <button class="primary-button" id="startWorkoutButton" type="button">Começar treino</button>
+        </div>
+
+      </section>
+
+      <section class="screen" id="generatorScreen" aria-labelledby="generatorTitle">
+        <div class="section-heading">
+          <button class="back-button" data-target="homeScreen" type="button">Voltar</button>
+          <h2 id="generatorTitle">Treino do dia</h2>
+          <p>Escolhe o contexto de hoje. O perfil continua guardado em separado.</p>
+        </div>
+
+        <form class="stack" id="workoutForm">
+          <fieldset>
+            <legend>Modo de treino</legend>
+            <div class="option-grid" data-field="trainingMode"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Músculos para treinar hoje</legend>
+            <div class="option-grid multi" data-field="todayMuscles"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Tempo disponível</legend>
+            <div class="option-grid" data-field="duration"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Tipo de treino</legend>
+            <div class="option-grid" data-field="trainingType"></div>
+          </fieldset>
+
+          <label>
+            Local de treino hoje
+            <select id="todayLocation"></select>
+          </label>
+
+          <button class="primary-button" type="submit">Gerar treino</button>
+        </form>
+      </section>
+
+      <section class="screen" id="workoutScreen" aria-labelledby="workoutTitle">
+        <div class="workout-topbar">
+          <button class="back-button" data-target="generatorScreen" type="button">Ajustar</button>
+          <button class="back-button" id="workoutHomeButton" type="button">Home</button>
+          <span id="workoutProgress">1/1</span>
+        </div>
+
+        <div class="progress-track" aria-hidden="true">
+          <div id="progressBar"></div>
+        </div>
+
+        <section class="coach-card" id="workoutCoachCard" aria-label="Resumo do treino">
+          <div>
+            <p class="eyebrow" id="workoutIdentity">Treino</p>
+            <h2 id="workoutFocus">Foco do dia</h2>
+            <p id="workoutGoal">Objetivo: treino inteligente</p>
+          </div>
+          <div class="coach-grid">
+            <div class="coach-item">
+              <strong>Tempo estimado</strong>
+              <span id="workoutEstimatedTime">-- min</span>
+            </div>
+            <div class="coach-item">
+              <strong>Exercício principal</strong>
+              <span id="mainExerciseName">A definir</span>
+            </div>
+            <div class="coach-item">
+              <strong>Foco</strong>
+              <span id="mainExerciseFocus">Boa execução</span>
+            </div>
+            <div class="coach-item">
+              <strong>Recuperação</strong>
+              <span id="workoutRecoverySummary">A avaliar</span>
+            </div>
+          </div>
+          <p class="coach-message" id="contextCoachMessage"></p>
+          <p class="coach-message" id="liveCoachMessage"></p>
+          <p class="coach-message hidden" id="recordCoachMessage"></p>
+        </section>
+
+        <article class="exercise-card">
+          <p class="eyebrow" id="exerciseMeta">Treino</p>
+          <h2 id="workoutTitle">Exercício</h2>
+          <p class="exercise-instructions" id="exerciseInstructions">Executa com controlo e boa postura.</p>
+          <p id="restHint">Descanso sugerido: 60-90s</p>
+          <div class="sets-list" id="setsList"></div>
+        </article>
+
+        <div class="sticky-actions">
+          <button class="secondary-button" id="prevExerciseButton" type="button">Exercício anterior</button>
+          <button class="primary-button" id="nextExerciseButton" type="button">Próximo exercício</button>
+          <button class="finish-button hidden" id="finishWorkoutButton" type="button">Finalizar treino</button>
+        </div>
+      </section>
+
+      <section class="screen" id="historyScreen" aria-labelledby="historyTitle">
+        <div class="section-heading">
+          <button class="back-button" data-target="homeScreen" type="button">Voltar</button>
+          <h2 id="historyTitle">Histórico</h2>
+          <p>Treinos guardados localmente neste dispositivo.</p>
+        </div>
+
+        <div class="history-list" id="historyList"></div>
+        <div class="history-details hidden" id="historyDetails"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-action-bar" aria-label="Navegação principal">
+      <button class="nav-button" id="navHomeButton" type="button">Home</button>
+      <button class="nav-button" id="navTrainingButton" type="button">Treino</button>
+      <button class="nav-button" id="navHistoryButton" type="button">Histórico</button>
+      <button class="nav-button" id="navProfileButton" type="button">Perfil</button>
+    </nav>
+
+    <div class="modal-backdrop hidden" id="exitWorkoutModal" role="dialog" aria-modal="true" aria-labelledby="exitWorkoutTitle">
+      <div class="modal-panel">
+        <h2 id="exitWorkoutTitle">Pretendes sair do treino?</h2>
+        <div class="modal-actions">
+          <button class="primary-button" id="saveAndLeaveWorkoutButton" type="button">Continuar depois</button>
+          <button class="finish-button" id="abandonWorkoutButton" type="button">Abandonar treino</button>
+          <button class="secondary-button" id="cancelExitWorkoutButton" type="button">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="workoutSummaryModal" role="dialog" aria-modal="true" aria-labelledby="workoutSummaryTitle">
+      <div class="modal-panel">
+        <h2 id="workoutSummaryTitle">Treino concluído ✅</h2>
+        <div class="summary-content" id="workoutSummaryContent"></div>
+        <div class="modal-actions">
+          <button class="primary-button" id="closeWorkoutSummaryButton" type="button">Voltar à Home</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-panel settings-panel">
+        <div class="settings-header">
+          <div>
+            <p class="eyebrow">Mentis Fitness</p>
+            <h2 id="settingsTitle">Definições</h2>
+          </div>
+          <button class="icon-nav-button" id="closeSettingsButton" type="button" aria-label="Fechar definições">
+            <span>×</span>
+          </button>
+        </div>
+        <div class="settings-list">
+          <div class="settings-item active">
+            <strong>Tema</strong>
+            <span>Modo claro/escuro ativo no topo da app.</span>
+          </div>
+          <div class="settings-item future" aria-disabled="true">
+            <strong>Notificações</strong>
+            <span>Em desenvolvimento</span>
+          </div>
+          <div class="settings-item future" aria-disabled="true">
+            <strong>Unidades</strong>
+            <span>Disponível em breve</span>
+          </div>
+          <div class="settings-item active">
+            <strong>Save system</strong>
+            <span>Backup interno guardado neste browser. Mantém um save principal pronto a restaurar.</span>
+            <div class="backup-meta">
+              <span id="lastBackupCreatedLabel">Último backup disponível: nunca</span>
+              <span id="lastBackupRestoredLabel">Último backup restaurado: nunca</span>
+            </div>
+            <div class="settings-actions">
+              <button class="secondary-button" id="restoreBackupButton" type="button">Restaurar backup</button>
+              <button class="primary-button" id="createBackupButton" type="button">Criar backup</button>
+            </div>
+            <div class="advanced-backup">
+              <strong>Exportação avançada</strong>
+              <span>JSON opcional para trocar de dispositivo ou guardar manualmente.</span>
+            </div>
+            <div class="settings-actions compact">
+              <button class="secondary-button" id="exportDataButton" type="button">Exportar JSON</button>
+              <button class="secondary-button" id="importDataButton" type="button">Importar JSON</button>
+              <input class="hidden" id="importDataInput" type="file" accept="application/json,.json" />
+            </div>
+          </div>
+          <div class="settings-item active danger-zone">
+            <strong>Reset</strong>
+            <span>Limpa os dados ativos da app. O backup interno fica protegido.</span>
+            <div class="settings-actions">
+              <button class="finish-button" id="resetAppButton" type="button">Reset da app</button>
+            </div>
+          </div>
+          <div class="settings-item future" aria-disabled="true">
+            <strong>Preferências</strong>
+            <span>Disponível em breve</span>
+          </div>
+          <div class="settings-item active">
+            <strong>Tecnologia</strong>
+            <div id="appVersionLabel"></div>
+            <button class="settings-link-button" id="versionNotesButton" type="button">Ver novidades →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="versionNotesModal" role="dialog" aria-modal="true" aria-labelledby="versionNotesTitle">
+      <div class="modal-panel settings-panel">
+        <div class="settings-header">
+          <div>
+            <p class="eyebrow">Atualização</p>
+            <h2 id="versionNotesTitle">Novidades da versão</h2>
+          </div>
+          <button class="icon-nav-button" id="closeVersionNotesButton" type="button" aria-label="Fechar novidades da versão">
+            <span>×</span>
+          </button>
+        </div>
+        <div class="version-notes-list" id="versionNotesList"></div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => {
+        console.log("Service Worker registado");
+      })
+      .catch((error) => {
+        console.log("Erro Service Worker:", error);
+      });
+  });
+}
+</script>
+</body>
+</html>
