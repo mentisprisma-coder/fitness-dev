@@ -233,7 +233,8 @@ body[data-theme="light"] .profile-card {
 
 body[data-theme="light"] .insight,
 body[data-theme="light"] .coach-item,
-body[data-theme="light"] .set-row {
+body[data-theme="light"] .set-row,
+body[data-theme="light"] .rest-timer {
   border-color: var(--border);
   background: var(--card);
   box-shadow: none;
@@ -913,6 +914,39 @@ button:focus-visible {
   letter-spacing: 0.04em;
 }
 
+.rest-timer {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(12, 17, 22, 0.84);
+}
+
+.rest-timer-button {
+  width: 100%;
+}
+
+.rest-timer-display {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border: 1px solid rgba(67, 245, 155, 0.2);
+  border-radius: 8px;
+  color: var(--accent);
+  background: rgba(67, 245, 155, 0.08);
+  font-size: 1.18rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.rest-timer-display.finished {
+  color: var(--success-text);
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
 .sticky-actions {
   position: sticky;
   bottom: 86px;
@@ -1284,6 +1318,25 @@ body[data-theme="light"] .recovery-badge.low {
   background: var(--warning-bg);
   box-shadow: var(--shadow);
   animation: enter 180ms ease-out;
+}
+
+.update-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.update-toast button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(67, 245, 155, 0.36);
+  border-radius: 8px;
+  color: var(--bg);
+  background: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 900;
 }
 
 @media (min-width: 640px) {

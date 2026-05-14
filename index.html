@@ -135,6 +135,11 @@
             <div class="option-grid" data-field="trainingType"></div>
           </fieldset>
 
+          <fieldset>
+            <legend>Tempo de descanso entre séries</legend>
+            <div class="option-grid" data-field="restSeconds"></div>
+          </fieldset>
+
           <label>
             Local de treino hoje
             <select id="todayLocation"></select>
@@ -320,18 +325,5 @@
     </div>
 
     <script src="script.js"></script>
-  <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js")
-      .then(() => {
-        console.log("Service Worker registado");
-      })
-      .catch((error) => {
-        console.log("Erro Service Worker:", error);
-      });
-  });
-}
-</script>
 </body>
 </html>

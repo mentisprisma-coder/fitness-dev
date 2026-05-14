@@ -44,6 +44,7 @@ const OPTIONS = {
   todayMuscles: ["peito", "costas", "pernas", "ombros", "braços", "core"],
   trainingMode: ["manual", "push", "pull", "legs", "upper", "lower", "fullbody"],
   duration: ["30 min", "45 min", "60 min", "75+ min"],
+  restSeconds: ["30s", "45s", "60s", "90s", "120s"],
   trainingType: ["rápido e intenso", "equilibrado", "completo"],
   lifestyle: ["sedentário", "moderado", "ativo"],
 };
@@ -262,6 +263,7 @@ const state = {
   lastWorkoutSplit: null,
   lastTrained: {},
   fatigue: {},
+  restTimerId: null,
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -478,6 +480,7 @@ function exportSaveData() {
 }
 
 function clearActiveSave() {
+  stopRestTimer();
   ACTIVE_SAVE_KEYS.forEach((key) => localStorage.removeItem(key));
   state.profile = null;
   state.currentWorkout = null;
@@ -599,6 +602,7 @@ function populateWorkoutForm(workout) {
   setDefaultOption("trainingMode", workout.trainingMode);
   setDefaultOption("duration", workout.duration);
   setDefaultOption("trainingType", workout.trainingType);
+  setDefaultOption("restSeconds", `${getWorkoutRestSeconds(workout)}s`);
 
   document
     .querySelectorAll('[data-field="todayMuscles"] .option-button')
@@ -615,6 +619,7 @@ function populateWorkoutForm(workout) {
 }
 function preserveActiveWorkout() {
   if (!state.currentWorkout) return;
+  stopRestTimer();
   saveWorkoutDraft();
   updateContinueWorkoutButton();
 }
@@ -759,6 +764,7 @@ function generateWorkout(event) {
   const muscles = splitMuscles || getMultiValue("todayMuscles");
   const duration = getSingleValue("duration");
   const trainingType = getSingleValue("trainingType");
+  const restSeconds = parseRestSeconds(getSingleValue("restSeconds"));
   const location = document.querySelector("#todayLocation").value || state.profile.defaultLocation;
 
   if (!state.profile) {
@@ -772,7 +778,7 @@ function generateWorkout(event) {
     return;
   }
 
-  const workout = buildWorkout({ muscles, duration, trainingType, location, split: trainingMode });
+  const workout = buildWorkout({ muscles, duration, trainingType, restSeconds, location, split: trainingMode });
 
   if (!workout.exercises.length) {
     showToast("Não encontrei exercícios compatíveis. Ajusta músculos, local ou limitação.");
@@ -824,13 +830,15 @@ function buildWorkout(context) {
   });
 
   const selected = buildStructuredSession(sorted, context.muscles, targetCount, profile.weakPoints, WORKOUT_SPLITS[context.split]);
-  const estimatedTime = getEstimatedTime(selected, sets, rest);
+  const restSeconds = context.restSeconds || 60;
+  const estimatedTime = getEstimatedTime(selected, sets, restSeconds);
 
   return {
     date: new Date().toISOString(),
     muscles: context.muscles,
     duration: context.duration,
     trainingType: context.trainingType,
+    restSeconds,
     split: context.split,
     location: context.location,
     rest,
@@ -840,6 +848,7 @@ function buildWorkout(context) {
       sets,
       reps,
       rest,
+      restSeconds,
       instructions: exercise.instructions || getExerciseInstructions(exercise),
       performance: Array.from({ length: sets }, () => ({ weight: "", reps: "" })),
     })),
@@ -1112,11 +1121,7 @@ function hasInstructionTerm(value, terms) {
 }
 
 function getEstimatedTime(exercises, sets, rest) {
-  const restMinutes = {
-    "30-60s": [0.5, 1],
-    "60-90s": [1, 1.5],
-    "90-120s": [1.5, 2],
-  }[rest] || [1, 1.5];
+  const restMinutes = getRestMinutesRange(rest);
   const workMinutesByType = {
     composto: [2.5, 3],
     secundario: [2, 2.5],
@@ -1135,6 +1140,20 @@ function getEstimatedTime(exercises, sets, rest) {
   );
 
   return `${Math.round(min)}-${Math.round(max)} min`;
+}
+
+function getRestMinutesRange(rest) {
+  const restSeconds = Number(rest);
+  if (Number.isFinite(restSeconds) && restSeconds > 0) {
+    const minutes = restSeconds / 60;
+    return [minutes, minutes];
+  }
+
+  return {
+    "30-60s": [0.5, 1],
+    "60-90s": [1, 1.5],
+    "90-120s": [1.5, 2],
+  }[rest] || [1, 1.5];
 }
 
 function getRepRange(goal) {
@@ -1159,6 +1178,7 @@ function renderCurrentExercise() {
   const index = state.currentExerciseIndex;
   const currentExercise = workout.exercises[index];
   const exercise = currentExercise;
+  stopRestTimer();
   const progress = ((index + 1) / workout.exercises.length) * 100;
   const exerciseInstructions = document.querySelector("#exerciseInstructions");
 
@@ -1203,6 +1223,8 @@ function renderCurrentExercise() {
       renderWorkoutCoaching();
     });
   });
+
+  renderRestTimer(setsList, getWorkoutRestSeconds(workout));
 
   document.querySelector("#prevExerciseButton").disabled = index === 0;
   document.querySelector("#prevExerciseButton").style.opacity = index === 0 ? "0.45" : "1";
@@ -1255,7 +1277,56 @@ function updateSetRowCompletion(row, set) {
   row.classList.toggle("completed", Boolean(set.weight && set.reps));
 }
 
+function renderRestTimer(container, restSeconds) {
+  const timer = document.createElement("div");
+  timer.className = "rest-timer";
+  timer.innerHTML = `
+    <button class="secondary-button rest-timer-button" type="button">Iniciar descanso ${restSeconds}s</button>
+    <span class="rest-timer-display" aria-live="polite">Pronto para descanso</span>
+  `;
+
+  const button = timer.querySelector(".rest-timer-button");
+  const display = timer.querySelector(".rest-timer-display");
+  button.addEventListener("click", () => startRestTimer(restSeconds, display));
+  container.appendChild(timer);
+}
+
+function startRestTimer(restSeconds, display) {
+  stopRestTimer();
+  let remaining = restSeconds;
+  display.textContent = formatTimerTime(remaining);
+  display.classList.remove("finished");
+
+  state.restTimerId = window.setInterval(() => {
+    remaining -= 1;
+
+    if (remaining <= 0) {
+      stopRestTimer();
+      display.textContent = "Descanso terminado";
+      display.classList.add("finished");
+      showToast("Descanso terminado");
+      if ("vibrate" in navigator) navigator.vibrate(500);
+      return;
+    }
+
+    display.textContent = formatTimerTime(remaining);
+  }, 1000);
+}
+
+function stopRestTimer() {
+  if (!state.restTimerId) return;
+  window.clearInterval(state.restTimerId);
+  state.restTimerId = null;
+}
+
+function formatTimerTime(totalSeconds) {
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
 function finishWorkout() {
+  stopRestTimer();
   const summary = buildWorkoutSummary(state.currentWorkout);
   const history = readStorage(STORAGE_KEYS.history, []);
   history.unshift(state.currentWorkout);
@@ -1357,6 +1428,7 @@ function closeExitWorkoutModal() {
 }
 
 function saveAndLeaveWorkout() {
+  stopRestTimer();
   saveWorkoutDraft();
   updateContinueWorkoutButton();
   closeExitWorkoutModal();
@@ -1364,6 +1436,7 @@ function saveAndLeaveWorkout() {
 }
 
 function abandonWorkout() {
+  stopRestTimer();
   clearWorkoutDraft();
   state.currentWorkout = null;
   state.currentExerciseIndex = 0;
@@ -1385,14 +1458,16 @@ function restoreWorkoutDraft() {
 }
 
 function normalizeWorkout(workout) {
+  workout.restSeconds = getWorkoutRestSeconds(workout);
   workout.exercises.forEach((exercise) => {
     if (!exercise.tipo) exercise.tipo = getExerciseType(exercise);
     if (!exercise.instructions) exercise.instructions = getExerciseInstructions(exercise);
     if (!exercise.rest) exercise.rest = workout.rest;
+    if (!exercise.restSeconds) exercise.restSeconds = workout.restSeconds;
   });
 
   if (!workout.estimatedTime) {
-    workout.estimatedTime = getEstimatedTime(workout.exercises, workout.exercises[0]?.sets || 3, workout.rest);
+    workout.estimatedTime = getEstimatedTime(workout.exercises, workout.exercises[0]?.sets || 3, workout.restSeconds);
   }
 
   return workout;
@@ -1574,6 +1649,7 @@ function prepareWorkoutDefaults() {
   syncMusclesFromTrainingMode(suggestedSplit || "manual");
   setDefaultOption("duration", "45 min");
   setDefaultOption("trainingType", "equilibrado");
+  setDefaultOption("restSeconds", "60s");
   document.querySelector("#todayLocation").value = state.profile.defaultLocation;
 }
 
@@ -2041,6 +2117,15 @@ function getNumberInput(selector) {
   return rawValue === "" ? Number.NaN : Number(rawValue);
 }
 
+function parseRestSeconds(value) {
+  const seconds = Number.parseInt(String(value || "").replace(/\D/g, ""), 10);
+  return [30, 45, 60, 90, 120].includes(seconds) ? seconds : 60;
+}
+
+function getWorkoutRestSeconds(workout) {
+  return parseRestSeconds(workout?.restSeconds || workout?.exercises?.[0]?.restSeconds || 60);
+}
+
 function setDefaultOption(field, value) {
   const container = document.querySelector(`[data-field="${field}"]`);
   if (!container) return;
@@ -2095,6 +2180,27 @@ function showToast(message) {
   window.setTimeout(() => toast.remove(), 3200);
 }
 
+function showUpdateToast(registration) {
+  document.querySelector(".toast")?.remove();
+  const toast = document.createElement("div");
+  toast.className = "toast update-toast";
+
+  const message = document.createElement("span");
+  message.textContent = "Nova versão disponível";
+
+  const updateButton = document.createElement("button");
+  updateButton.type = "button";
+  updateButton.textContent = "Atualizar";
+  updateButton.addEventListener("click", () => {
+    const waitingWorker = registration.waiting || registration.installing;
+    if (waitingWorker) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    window.location.reload();
+  });
+
+  toast.append(message, updateButton);
+  document.body.appendChild(toast);
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => {
     return {
@@ -2106,14 +2212,45 @@ function escapeHtml(value) {
     }[char];
   });
 }
-if ("serviceWorker" in navigator) {
+function registerServiceWorker() {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js")
-      .then(() => {
+    let updateToastShown = false;
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || updateToastShown) return;
+      updateToastShown = true;
+      navigator.serviceWorker.ready.then((registration) => showUpdateToast(registration));
+    });
+
+    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" })
+      .then((registration) => {
         console.log("Service Worker registado.");
+
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          showUpdateToast(registration);
+        }
+
+        registration.addEventListener("updatefound", () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateToast(registration);
+            }
+          });
+        });
+
+        registration.update();
+        window.setInterval(() => registration.update(), 30 * 60 * 1000);
       })
       .catch((error) => {
         console.log("Erro ao registar Service Worker:", error);
       });
   });
+}
+
+if ("serviceWorker" in navigator) {
+  registerServiceWorker();
 }
